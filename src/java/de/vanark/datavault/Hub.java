@@ -112,14 +112,12 @@ public class Hub {
     }
 
     public static class KeyConfig extends NormalizeObjectConfig {
-        private final static NormalizeObjectConfig DEFAULT_OBJECT_CONFIG =
-                new NormalizeObjectConfig(NormalizeObjectConfig.CaseSensitive.CASE_SENSITIVE.name(), false);
 
         private final String hubColumnName;
         private final boolean encrypted;
 
         public KeyConfig(String hubColumnName, boolean encrypted) {
-            this(hubColumnName, encrypted, DEFAULT_OBJECT_CONFIG);
+            this(hubColumnName, encrypted, GlobalHashNormalization.DEFAULT_OBJECT_CONFIG);
         }
 
         public KeyConfig(String hubColumnName, boolean encrypted, NormalizeObjectConfig normalizeObjectConfig) {
@@ -138,12 +136,14 @@ public class Hub {
         private final String hash;
         private String hashedEncryption;
         private final Object[] values;
-        private String base64Key;
+        private char[] encryptionKey;
         private String[] encryptedValues;
 
         private BusinessKey(Object... values) throws Exception {
             this.hash = hash(values);
-            GlobalHashNormalization.DEFAULT_NORMALIZATION.add(CYCLIC_REDUNDANCY_CHECK_ADDON, KeyConfig.DEFAULT_OBJECT_CONFIG);
+            GlobalHashNormalization.DEFAULT_NORMALIZATION.add(
+                    CYCLIC_REDUNDANCY_CHECK_ADDON,
+                    GlobalHashNormalization.DEFAULT_OBJECT_CONFIG);
             this.cyclicRedundancyCheck = GlobalHashNormalization.DEFAULT_NORMALIZATION.calculateHash(
                     GlobalHashNormalization.DEFAULT_HASH_ALGORITHM,
                     GlobalHashNormalization.DEFAULT_HASH_OUTPUT_ENCODING);
@@ -170,18 +170,18 @@ public class Hub {
         }
 
         private void encrypt() throws Exception {
-            base64Key = AesEncryption.generateBase64Key();
+            encryptionKey = Encryption.generateSecretKey();
             encryptedValues = new String[values.length];
             Object[] encryptedKeyValues = new Object[values.length];
             NormalizeObjectConfig[] configs = new NormalizeObjectConfig[values.length];
             for (int i = 0; i < values.length; i++)
                 if (keyConfigs[i].encrypted) {
-                    encryptedValues[i] = AesEncryption.encrypt(values[i], base64Key);
+                    encryptedValues[i] = Encryption.encrypt(encryptionKey, values[i]);
                     encryptedKeyValues[i] = encryptedValues[i];
                     configs[i] = keyConfigs[i];
                 } else {
                     encryptedKeyValues[i] = values[i];
-                    configs[i] = KeyConfig.DEFAULT_OBJECT_CONFIG;
+                    configs[i] = GlobalHashNormalization.DEFAULT_OBJECT_CONFIG;
                 }
             hashedEncryption = hash(encryptedKeyValues, configs);
         }
@@ -201,7 +201,7 @@ public class Hub {
             valueList.add(hash);
             valueList.add(hashedEncryption);
             valueList.add(cyclicRedundancyCheck);
-            valueList.add(base64Key);
+            valueList.add(encryptionKey);
 
             if (additionalColumnsEks != null)
                 for (Map.Entry<String, Object> entry : additionalColumnsEks.entrySet()) {

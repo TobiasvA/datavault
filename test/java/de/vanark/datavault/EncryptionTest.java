@@ -14,7 +14,7 @@ import java.util.Date;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class EncryptionTest {
-    private final char[] secretKey = Encryption.generateSecretKey();
+    private final String secretKey = Encryption.generateSecretKey();
     @Test
     public void encrypt() throws InvalidKeyException, BadPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, NoSuchPaddingException, DecoderException {
         System.out.println(secretKey);

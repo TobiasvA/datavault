@@ -21,7 +21,7 @@ public class GlobalHashNormalization {
             false);
     public final static String DEFAULT_HASH_ALGORITHM = "SHA1";
     public final static HashCalculation.HASH_OUTPUT_ENCODINGS DEFAULT_HASH_OUTPUT_ENCODING =
-            HashCalculation.HASH_OUTPUT_ENCODINGS.BASE64;
+            HashCalculation.HASH_OUTPUT_ENCODINGS.HEX;
     public final static HashNormalization DEFAULT_NORMALIZATION = new HashNormalization(DEFAULT_CONFIG);
     public final static NormalizeObjectConfig DEFAULT_OBJECT_CONFIG =
             new NormalizeObjectConfig(NormalizeObjectConfig.CaseSensitive.CASE_SENSITIVE.name(), false);

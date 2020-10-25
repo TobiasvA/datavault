@@ -18,6 +18,8 @@ class HubTest {
         Hub.KeyConfig teilvertragAttribute = new Hub.KeyConfig("teilvertrag_ec", true);
         teilvertrag = new Hub(
                 connection,
+                "aes_encrypt({value}, {key})",
+                "sha1({value})",
                 "teilvertrag_hub",
                 "teilvertrag_hub_eks",
                 "meta_loaddate",

@@ -9,13 +9,17 @@ import java.util.*;
 public class Hub {
     private final static String CYCLIC_REDUNDANCY_CHECK_ADDON = "1";
 
+    private Map<String, Object> additionalColumnsHub;
+    private Map<String, Object> additionalColumnsEks;
     private final Cache<Object[], BusinessKey> cache = new Cache<>();
     private final Connection connection;
     private final String crcColumnEks;
     private final String encryptedHashColumnEks;
     private final String encryptedHashColumnHub;
     private final String encryptionKeyEks;
+    private final String encryptionFunction;
     private final String hashColumnEks;
+    private final String hashFunction;
     private final KeyConfig[] keyConfigs;
     private final String loadDateColumnEks;
     private final String loadDateColumnHub;
@@ -23,10 +27,9 @@ public class Hub {
     private final String recordSourceColumnHub;
     private final String tableEks;
     private final String tableHub;
-    private Map<String, Object> additionalColumnsHub;
-    private Map<String, Object> additionalColumnsEks;
 
-    public Hub(Connection connection, String tableHub, String tableEks,
+    public Hub(Connection connection, String encryptionFunction, String hashFunction,
+               String tableHub, String tableEks,
                String loadDateColumnEks, String loadDateColumnHub,
                String recordSourceColumnEks, String recordSourceColumnHub,
                String hashColumnEks,
@@ -35,6 +38,8 @@ public class Hub {
                String encryptionKeyEks,
                KeyConfig... keyConfigs) {
         this.connection = connection;
+        this.encryptionFunction = encryptionFunction;
+        this.hashFunction = hashFunction;
         this.crcColumnEks = crcColumnEks;
         this.encryptedHashColumnEks = encryptedHashColumnEks;
         this.encryptedHashColumnHub = encryptedHashColumnHub;
@@ -66,6 +71,10 @@ public class Hub {
         if (businessKey == null) businessKey = queryBusinessKey();
         if (businessKey == null) businessKey = new BusinessKey(values);
         return businessKey;
+    }
+
+    private KeyConfig getKeyConfig(short index) {
+        return keyConfigs[index];
     }
 
     private static String hash(Object[] values, NormalizeObjectConfig[] configs) {
@@ -133,11 +142,12 @@ public class Hub {
 
     public class BusinessKey {
         private String cyclicRedundancyCheck;
+        private String encryptionKey;
+        private String[] encryptedValues;
         private final String hash;
         private String hashedEncryption;
+        private String[] normalizedValues;
         private final Object[] values;
-        private char[] encryptionKey;
-        private String[] encryptedValues;
 
         private BusinessKey(Object... values) throws Exception {
             this.hash = hash(values);
@@ -169,6 +179,25 @@ public class Hub {
             this.values = values;
         }
 
+        private String getEncryptionKey() {
+            if (encryptionKey == null )
+                encryptionKey = Encryption.generateSecretKey();
+            return encryptionKey;
+        }
+
+        private String getNormalizedValue(short index) {
+            if(normalizedValues[index] == null) {
+                GlobalHashNormalization.DEFAULT_NORMALIZATION.reset();
+                GlobalHashNormalization.DEFAULT_NORMALIZATION.add(getValue(index), getKeyConfig(index));
+                normalizedValues[index] = GlobalHashNormalization.DEFAULT_NORMALIZATION.getNormalizedString();
+            }
+            return normalizedValues[index];
+        }
+
+        private Object getValue(short index) {
+            return values[index];
+        }
+
         private void encrypt() throws Exception {
             encryptionKey = Encryption.generateSecretKey();
             encryptedValues = new String[values.length];
@@ -184,6 +213,21 @@ public class Hub {
                     configs[i] = GlobalHashNormalization.DEFAULT_OBJECT_CONFIG;
                 }
             hashedEncryption = hash(encryptedKeyValues, configs);
+        }
+
+        private String buildEncryptionCall(short index) {
+                return encryptionFunction
+                        .replace("{key}", getEncryptionKey())
+                        .replace("{value}", getNormalizedValue(index));
+        }
+
+        private String buildHashEncryptionCall() {
+            final StringJoiner value = new StringJoiner(GlobalHashNormalization.DEFAULT_CONFIG.getDelimter());
+            for (short i = 0; i < keyConfigs.length; i++) {
+                value.add((getKeyConfig(i).encrypted) ? buildEncryptionCall(i) : getNormalizedValue(i));
+            }
+            return hashFunction
+                    .replace("{value}", value.toString());
         }
 
         private void persistEks(LocalDateTime loadDate) throws SQLException {
@@ -231,10 +275,10 @@ public class Hub {
             final LinkedList<Object> valueList = new LinkedList<>();
             valueList.add(loadDate);
             valueList.add(this.getClass().getCanonicalName().substring(0, 27));
-            valueList.add(hashedEncryption);
+            valueList.add(buildHashEncryptionCall());
             for (short i = 0; i < keyConfigs.length; i++) {
-                columnList.add(keyConfigs[i].hubColumnName);
-                valueList.add((keyConfigs[i].encrypted) ? encryptedValues[i] : values[i]);
+                columnList.add(getKeyConfig(i).hubColumnName);
+                valueList.add((getKeyConfig(i).encrypted) ? buildEncryptionCall(i) : getValue(i));
             }
 
             if (additionalColumnsHub != null)

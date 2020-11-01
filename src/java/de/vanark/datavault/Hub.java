@@ -179,26 +179,42 @@ public class Hub {
             this.values = values;
         }
 
-        private String getEncryptionKey() {
-            if (encryptionKey == null )
-                encryptionKey = Encryption.generateSecretKey();
-            return encryptionKey;
+        private String buildEncryptionCall(short index) {
+            return encryptionFunction
+                    .replace("{key}", "'" + getEncryptionKey() + "'")
+                    .replace("{value}", "'" + getNormalizedValue(index) + "'");
         }
 
-        private String getNormalizedValue(short index) {
-            if(normalizedValues[index] == null) {
-                GlobalHashNormalization.DEFAULT_NORMALIZATION.reset();
-                GlobalHashNormalization.DEFAULT_NORMALIZATION.add(getValue(index), getKeyConfig(index));
-                normalizedValues[index] = GlobalHashNormalization.DEFAULT_NORMALIZATION.getNormalizedString();
+        private String buildHashEncryptionCall() {
+            final StringJoiner value = new StringJoiner(GlobalHashNormalization.DEFAULT_CONFIG.getDelimter());
+            for (short i = 0; i < keyConfigs.length; i++) {
+                value.add((getKeyConfig(i).encrypted) ? buildEncryptionCall(i) : getNormalizedValue(i));
             }
-            return normalizedValues[index];
+            return hashFunction
+                    .replace("{value}", value.toString());
         }
 
-        private Object getValue(short index) {
-            return values[index];
-        }
+        private void encrypt() throws SQLException {
+            encryptedValues = new String[values.length];
+            final StringJoiner selections = new StringJoiner(", ")
+                    .add(buildHashEncryptionCall());
+            for (short index = 0; index < values.length; index++)
+                if (keyConfigs[index].encrypted)
+                    selections.add(buildEncryptionCall(index));
+                else
+                    selections.add("null");
+            String query = "select " + selections.toString();
+            Statement statement = connection.createStatement();
+            ResultSet result = statement.executeQuery(query);
+            result.next();
+            hashedEncryption = result.getString(1);
+            for (short index = 0; index < values.length; index++)
+                if (keyConfigs[index].encrypted)
+                    encryptedValues[index] = result.getString(index + 2);
+            result.close();
+            statement.close();
 
-        private void encrypt() throws Exception {
+            /* local encryption
             encryptionKey = Encryption.generateSecretKey();
             encryptedValues = new String[values.length];
             Object[] encryptedKeyValues = new Object[values.length];
@@ -212,22 +228,32 @@ public class Hub {
                     encryptedKeyValues[i] = values[i];
                     configs[i] = GlobalHashNormalization.DEFAULT_OBJECT_CONFIG;
                 }
-            hashedEncryption = hash(encryptedKeyValues, configs);
+            hashedEncryption = hash(encryptedKeyValues, configs);*/
         }
 
-        private String buildEncryptionCall(short index) {
-                return encryptionFunction
-                        .replace("{key}", getEncryptionKey())
-                        .replace("{value}", getNormalizedValue(index));
+        private String getEncryptedValue(short index) {
+            return encryptedValues[index];
         }
 
-        private String buildHashEncryptionCall() {
-            final StringJoiner value = new StringJoiner(GlobalHashNormalization.DEFAULT_CONFIG.getDelimter());
-            for (short i = 0; i < keyConfigs.length; i++) {
-                value.add((getKeyConfig(i).encrypted) ? buildEncryptionCall(i) : getNormalizedValue(i));
+        private String getEncryptionKey() {
+            if (encryptionKey == null )
+                encryptionKey = Encryption.generateSecretKey();
+            return encryptionKey;
+        }
+
+        private String getNormalizedValue(short index) {
+            if (normalizedValues == null)
+                normalizedValues = new String[values.length];
+            if (normalizedValues[index] == null) {
+                GlobalHashNormalization.DEFAULT_NORMALIZATION.reset();
+                GlobalHashNormalization.DEFAULT_NORMALIZATION.add(getValue(index), getKeyConfig(index));
+                normalizedValues[index] = GlobalHashNormalization.DEFAULT_NORMALIZATION.getNormalizedString();
             }
-            return hashFunction
-                    .replace("{value}", value.toString());
+            return normalizedValues[index];
+        }
+
+        private Object getValue(short index) {
+            return values[index];
         }
 
         private void persistEks(LocalDateTime loadDate) throws SQLException {
@@ -245,7 +271,7 @@ public class Hub {
             valueList.add(hash);
             valueList.add(hashedEncryption);
             valueList.add(cyclicRedundancyCheck);
-            valueList.add(encryptionKey);
+            valueList.add(getEncryptionKey());
 
             if (additionalColumnsEks != null)
                 for (Map.Entry<String, Object> entry : additionalColumnsEks.entrySet()) {
@@ -262,7 +288,15 @@ public class Hub {
             final PreparedStatement statement = connection.prepareStatement(insertSQL.toString());
             for (int i = 0; i < valueList.size(); i++)
                 statement.setObject(i + 1, valueList.get(i));
-            statement.executeUpdate();
+            try {
+                statement.executeUpdate();
+            } catch (SQLSyntaxErrorException exception) {
+                System.err.println(insertSQL);
+                for (int index = 0; index < valueList.size(); index++) {
+                    System.err.println(index + ": " + valueList.get(index));
+                }
+                throw exception;
+            }
             statement.close();
         }
 
@@ -275,10 +309,10 @@ public class Hub {
             final LinkedList<Object> valueList = new LinkedList<>();
             valueList.add(loadDate);
             valueList.add(this.getClass().getCanonicalName().substring(0, 27));
-            valueList.add(buildHashEncryptionCall());
+            valueList.add(hashedEncryption);
             for (short i = 0; i < keyConfigs.length; i++) {
                 columnList.add(getKeyConfig(i).hubColumnName);
-                valueList.add((getKeyConfig(i).encrypted) ? buildEncryptionCall(i) : getValue(i));
+                valueList.add((getKeyConfig(i).encrypted) ? getEncryptedValue(i) : getValue(i));
             }
 
             if (additionalColumnsHub != null)
@@ -296,7 +330,15 @@ public class Hub {
             final PreparedStatement statement = connection.prepareStatement(insertSQL.toString());
             for (int i = 0; i < valueList.size(); i++)
                 statement.setObject(i + 1, valueList.get(i));
-            statement.executeUpdate();
+            try {
+                statement.executeUpdate();
+            } catch (SQLSyntaxErrorException exception) {
+                System.err.println(insertSQL);
+                for (int index = 0; index < valueList.size(); index++) {
+                    System.err.println(index + ": " + valueList.get(index));
+                }
+                throw exception;
+            }
             statement.close();
         }
     }

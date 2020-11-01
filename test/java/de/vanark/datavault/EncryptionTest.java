@@ -1,38 +1,14 @@
 package de.vanark.datavault;
 
 import de.cimt.talendcomp.checksum.HashCalculation;
-import org.apache.commons.codec.DecoderException;
 import org.junit.jupiter.api.Test;
 
-import javax.crypto.BadPaddingException;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.Date;
+import java.sql.*;
+import java.util.StringJoiner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class EncryptionTest {
-    private final String secretKey = Encryption.generateSecretKey();
-    @Test
-    public void encrypt() throws InvalidKeyException, BadPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, NoSuchPaddingException, DecoderException {
-        System.out.println(secretKey);
-        String encryptedValues;
-        encryptedValues = Encryption.encrypt(secretKey, 1);
-        System.out.println(encryptedValues);
-        encryptedValues = Encryption.encrypt(secretKey, 4711);
-        System.out.println(encryptedValues);
-        encryptedValues = Encryption.encrypt(secretKey, 125698456223L);
-        System.out.println(encryptedValues);
-        encryptedValues = Encryption.encrypt(secretKey, new Date());
-        System.out.println(encryptedValues);
-        encryptedValues = Encryption.encrypt(secretKey, "Hallo!", 12);
-        System.out.println(encryptedValues);
-        String decrypted = Encryption.decrypt(encryptedValues, secretKey);
-        System.out.println(decrypted);
-    }
-
     @Test
     public void hash() {
         GlobalHashNormalization.DEFAULT_NORMALIZATION.reset();

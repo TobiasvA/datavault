@@ -26,34 +26,12 @@ public class Encryption {
         return new String(ciphertextBytes);
     }
 
-    public static String encrypt(String key, Object... values) throws IllegalBlockSizeException, InvalidKeyException, BadPaddingException, NoSuchAlgorithmException, NoSuchPaddingException, DecoderException {
-        GlobalHashNormalization.DEFAULT_NORMALIZATION.reset();
-        Arrays.stream(values)
-                .forEach(v -> GlobalHashNormalization.DEFAULT_NORMALIZATION.add(
-                        v,
-                        GlobalHashNormalization.DEFAULT_OBJECT_CONFIG));
-        String normalizedInput = GlobalHashNormalization.DEFAULT_NORMALIZATION.getNormalizedString();
-        return encrypt(normalizedInput, key);
-    }
-
-    private static String encrypt(String normalizedInput, String key) throws NoSuchPaddingException, NoSuchAlgorithmException, InvalidKeyException, BadPaddingException, IllegalBlockSizeException, DecoderException {
-            //byte[] keyBytes = Arrays.copyOf(key.getBytes(StandardCharsets.US_ASCII), KEY_SIZE);
-            byte[] keyBytes = Hex.decodeHex(key);
-            SecretKey secretKey = new SecretKeySpec(keyBytes, "AES");
-            Cipher cipher = Cipher.getInstance("AES");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey);
-
-            byte[] clearText = normalizedInput.getBytes(StandardCharsets.UTF_8);
-            byte[] ciphertextBytes = cipher.doFinal(clearText);
-
-            return new String(Hex.encodeHex(ciphertextBytes));
-    }
-
     public static String generateSecretKey() {
         byte[] array = new byte[KEY_SIZE];
         SecureRandom random = new SecureRandom();
         random.nextBytes(array);
+        return Hex.encodeHexString(array);
         //return Hex.encodeHex(array);
-        return new String(array, StandardCharsets.US_ASCII);
+        //return new String(array, StandardCharsets.US_ASCII);
     }
 }

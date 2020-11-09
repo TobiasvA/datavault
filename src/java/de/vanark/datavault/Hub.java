@@ -68,7 +68,7 @@ public class Hub {
 
     public BusinessKey getBusinessKey(Object... values) throws Exception {
         BusinessKey businessKey = this.cache.get(values);
-        if (businessKey == null) businessKey = queryBusinessKey();
+        if (businessKey == null) businessKey = queryBusinessKey(values);
         if (businessKey == null) businessKey = new BusinessKey(values);
         return businessKey;
     }
@@ -186,7 +186,8 @@ public class Hub {
         }
 
         private String buildHashEncryptionCall() {
-            final StringJoiner value = new StringJoiner(GlobalHashNormalization.DEFAULT_CONFIG.getDelimter());
+            final StringJoiner value;
+            value = new StringJoiner("||'"+ GlobalHashNormalization.DEFAULT_CONFIG.getDelimter() + "'||");
             for (short i = 0; i < keyConfigs.length; i++) {
                 value.add((getKeyConfig(i).encrypted) ? buildEncryptionCall(i) : getNormalizedValue(i));
             }
@@ -195,6 +196,9 @@ public class Hub {
         }
 
         private void encrypt() throws SQLException {
+            Statement setSQLMode = connection.createStatement();
+            setSQLMode.execute("set sql_mode := 'PIPES_AS_CONCAT'");
+            setSQLMode.close();
             encryptedValues = new String[values.length];
             final StringJoiner selections = new StringJoiner(", ")
                     .add(buildHashEncryptionCall());
@@ -209,8 +213,9 @@ public class Hub {
             result.next();
             hashedEncryption = result.getString(1);
             for (short index = 0; index < values.length; index++)
-                if (keyConfigs[index].encrypted)
+                if (keyConfigs[index].encrypted) {
                     encryptedValues[index] = result.getString(index + 2);
+                }
             result.close();
             statement.close();
 

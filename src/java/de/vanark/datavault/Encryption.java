@@ -5,11 +5,9 @@ import org.apache.commons.codec.binary.Hex;
 
 import javax.crypto.*;
 import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.Arrays;
 
 public class Encryption {
     private final static int KEY_SIZE = 16;

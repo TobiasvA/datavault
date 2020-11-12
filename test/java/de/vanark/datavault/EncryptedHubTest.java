@@ -4,20 +4,19 @@ import org.junit.jupiter.api.*;
 
 import java.sql.*;
 
-class HubTest {
+class EncryptedHubTest {
     private Connection connection;
-    private Hub teilvertragHub;
+    private EncryptedHub teilvertragHub;
 
     @BeforeEach
     void setUp() throws SQLException {
         connection = DriverManager.getConnection("jdbc:mariadb://localhost:3306/datavault?user=dvload&password=dvload");
-        Hub.KeyConfig mandantAttribute = new Hub.KeyConfig("mandant", false);
-        Hub.KeyConfig vertragAttribute = new Hub.KeyConfig("vertrag_ec", true);
-        Hub.KeyConfig teilvertragAttribute = new Hub.KeyConfig("teilvertrag_ec", true);
-        teilvertragHub = new Hub(
+        EncryptedHub.KeyConfig mandantAttribute = new EncryptedHub.KeyConfig("mandant", false);
+        EncryptedHub.KeyConfig vertragAttribute = new EncryptedHub.KeyConfig("vertrag_ec", true);
+        EncryptedHub.KeyConfig teilvertragAttribute = new EncryptedHub.KeyConfig("teilvertrag_ec", true);
+        teilvertragHub = new EncryptedHub(
                 connection,
-                "hex(aes_encrypt({value}, {key}))",
-                "sha2({value}, 256)",
+                DBEncryptedBusinessKey.class,
                 "teilvertrag_hub",
                 "teilvertrag_hub_eks",
                 "meta_loaddate",

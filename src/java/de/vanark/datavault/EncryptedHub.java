@@ -2,22 +2,26 @@ package de.vanark.datavault;
 
 import de.cimt.talendcomp.checksum.NormalizeObjectConfig;
 
-import java.lang.reflect.Constructor;
-import java.sql.*;
-import java.util.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLSyntaxErrorException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.StringJoiner;
 
-public class EncryptedHub {
+public class EncryptedHub<BK extends EncryptedBusinessKey> {
     final static String CYCLIC_REDUNDANCY_CHECK_ADDON = "1";
 
     private Map<String, Object> additionalColumnsHub;
     private Map<String, Object> additionalColumnsEks;
-    private final Class<? extends EncryptedBusinessKey> businessKeyClass;
-    private final Cache<Object[], EncryptedBusinessKey> cache = new Cache<>();
+    private final Cache<Object[], BK> cache = new Cache<>();
     private final Connection connection;
     private final String crcColumnEks;
     private final String encryptedHashColumnEks;
     private final String encryptedHashColumnHub;
     private final String encryptionKeyEks;
+    private final EncryptedBusinessKey.Factory<BK> factory;
     private final String hashColumnEks;
     private final KeyConfig[] keyConfigs;
     private final String loadDateColumnEks;
@@ -27,7 +31,7 @@ public class EncryptedHub {
     private final String tableEks;
     private final String tableHub;
 
-    public EncryptedHub(Connection connection, Class<? extends EncryptedBusinessKey> businessKeyClass,
+    public EncryptedHub(Connection connection, EncryptedBusinessKey.Factory<BK> factory,
                         String tableHub, String tableEks,
                         String loadDateColumnEks, String loadDateColumnHub,
                         String recordSourceColumnEks, String recordSourceColumnHub,
@@ -37,11 +41,11 @@ public class EncryptedHub {
                         String encryptionKeyEks,
                         KeyConfig... keyConfigs) {
         this.connection = connection;
-        this.businessKeyClass = businessKeyClass;
         this.crcColumnEks = crcColumnEks;
         this.encryptedHashColumnEks = encryptedHashColumnEks;
         this.encryptedHashColumnHub = encryptedHashColumnHub;
         this.encryptionKeyEks = encryptionKeyEks;
+        this.factory = factory;
         this.hashColumnEks = hashColumnEks;
         this.keyConfigs = keyConfigs;
         this.loadDateColumnEks = loadDateColumnEks;
@@ -52,13 +56,13 @@ public class EncryptedHub {
         this.tableHub = tableHub;
     }
 
-    public EncryptedHub addAdditionalColumnEks(String columnName, Object value) {
+    public EncryptedHub<BK> addAdditionalColumnEks(String columnName, Object value) {
         if(additionalColumnsEks == null) additionalColumnsEks = new HashMap<>();
         additionalColumnsEks.put(columnName, value);
         return this;
     }
 
-    public EncryptedHub addAdditionalColumnHub(String columnName, Object value) {
+    public EncryptedHub<BK> addAdditionalColumnHub(String columnName, Object value) {
         if(additionalColumnsHub == null) additionalColumnsHub = new HashMap<>();
         additionalColumnsHub.put(columnName, value);
         return this;
@@ -72,12 +76,10 @@ public class EncryptedHub {
         return additionalColumnsHub;
     }
 
-    public EncryptedBusinessKey getBusinessKey(Object... values) throws Exception {
-        EncryptedBusinessKey businessKey = this.cache.get(values);
+    public BK getBusinessKey(Object... values) throws Exception {
+        BK businessKey = this.cache.get(values);
         if (businessKey == null) businessKey = queryBusinessKey(values);
-        final Constructor<? extends EncryptedBusinessKey> constructor;
-        constructor = businessKeyClass.getConstructor(EncryptedHub.class, Object[].class);
-        if (businessKey == null) businessKey = constructor.newInstance(this, values);
+        if (businessKey == null) businessKey = factory.construct(this, values);
         return businessKey;
     }
 
@@ -151,7 +153,7 @@ public class EncryptedHub {
         return hash(values, keyConfigs);
     }
 
-    private EncryptedBusinessKey queryBusinessKey(Object... values) throws Exception {
+    private BK queryBusinessKey(Object... values) throws Exception {
         final StringJoiner query = new StringJoiner("\n")
                 .add("select "+encryptedHashColumnEks+", "+hashColumnEks)
                 .add("from "+tableEks)
@@ -167,10 +169,8 @@ public class EncryptedHub {
             System.err.println("1: "+hashedValues);
             throw exception;
         }
-        Constructor<? extends EncryptedBusinessKey> constructor;
-        constructor = businessKeyClass.getConstructor(EncryptedHub.class, String.class, String.class, Object[].class);
-        EncryptedBusinessKey businessKey = result.next() ?
-                constructor.newInstance(
+        BK businessKey = result.next() ?
+                factory.construct(
                         this,
                         result.getString(encryptedHashColumnEks),
                         result.getString(hashColumnEks),

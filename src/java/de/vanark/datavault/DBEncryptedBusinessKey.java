@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.StringJoiner;
 
-import java.time.LocalDateTime;
 public class DBEncryptedBusinessKey extends EncryptedBusinessKey {
     private final static String encryptionFunction = "hex(aes_encrypt({value}, {key}))";
     private final static String hashFunction = "sha2({value}, 256)";
@@ -13,11 +12,11 @@ public class DBEncryptedBusinessKey extends EncryptedBusinessKey {
     private String[] encryptedValues;
     private String[] normalizedValues;
 
-    public DBEncryptedBusinessKey(EncryptedHub hub, Object... values) throws Exception {
-        super(hub,values);
+    public DBEncryptedBusinessKey(EncryptedHub<DBEncryptedBusinessKey> hub, Object... values) throws Exception {
+        super(hub, values);
     }
 
-    public DBEncryptedBusinessKey(EncryptedHub hub,String hashedEncryption, String hash, Object... values) {
+    public DBEncryptedBusinessKey(EncryptedHub<DBEncryptedBusinessKey> hub, String hashedEncryption, String hash, Object... values) {
         super(hub, hashedEncryption, hash, values);
     }
 
@@ -99,5 +98,17 @@ public class DBEncryptedBusinessKey extends EncryptedBusinessKey {
             normalizedValues[index] = GlobalHashNormalization.DEFAULT_NORMALIZATION.getNormalizedString();
         }
         return normalizedValues[index];
+    }
+
+    public static class Factory implements EncryptedBusinessKey.Factory<DBEncryptedBusinessKey> {
+        @Override
+        public DBEncryptedBusinessKey construct(EncryptedHub<DBEncryptedBusinessKey> hub, Object... values) throws Exception {
+            return new DBEncryptedBusinessKey(hub, values);
+        }
+
+        @Override
+        public DBEncryptedBusinessKey construct(EncryptedHub<DBEncryptedBusinessKey> hub, String hashedEncryption, String hash, Object... values) {
+            return new DBEncryptedBusinessKey(hub, hashedEncryption, hash, values);
+        }
     }
 }

@@ -6,7 +6,7 @@ import java.sql.*;
 
 class EncryptedHubTest {
     private Connection connection;
-    private EncryptedHub teilvertragHub;
+    private EncryptedHub<DBEncryptedBusinessKey> teilvertragHub;
 
     @BeforeEach
     void setUp() throws SQLException {
@@ -14,9 +14,8 @@ class EncryptedHubTest {
         EncryptedHub.KeyConfig mandantAttribute = new EncryptedHub.KeyConfig("mandant", false);
         EncryptedHub.KeyConfig vertragAttribute = new EncryptedHub.KeyConfig("vertrag_ec", true);
         EncryptedHub.KeyConfig teilvertragAttribute = new EncryptedHub.KeyConfig("teilvertrag_ec", true);
-        teilvertragHub = new EncryptedHub(
-                connection,
-                DBEncryptedBusinessKey.class,
+        teilvertragHub = new EncryptedHub<>(
+                connection, new DBEncryptedBusinessKey.Factory(),
                 "teilvertrag_hub",
                 "teilvertrag_hub_eks",
                 "meta_loaddate",
@@ -43,7 +42,7 @@ class EncryptedHubTest {
     @Test
     void getBusinessKey() throws Exception {
         long t = System.currentTimeMillis();
-        long end = t+600000;
+        long end = t+60000;
         int n = 0;
         while(System.currentTimeMillis() < end) {
             int mandant = (int) (Math.random() * 10);

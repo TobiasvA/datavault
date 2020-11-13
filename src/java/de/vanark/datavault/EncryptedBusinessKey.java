@@ -13,11 +13,11 @@ public abstract class EncryptedBusinessKey {
     private String cyclicRedundancyCheck;
     private String encryptionKey;
     private final String hash;
-    private final EncryptedHub hub;
+    private final EncryptedHub<? extends EncryptedBusinessKey> hub;
     private String hashedEncryption;
     private final Object[] values;
 
-    public EncryptedBusinessKey(EncryptedHub hub, Object... values) throws Exception {
+    public EncryptedBusinessKey(EncryptedHub<? extends EncryptedBusinessKey> hub, Object... values) throws Exception {
         this.hub = hub;
         this.hash = hub.hash(values);
         GlobalHashNormalization.DEFAULT_NORMALIZATION.add(
@@ -42,7 +42,7 @@ public abstract class EncryptedBusinessKey {
         connection.setAutoCommit(autoCommit);
     }
 
-    public EncryptedBusinessKey(EncryptedHub hub, String hashedEncryption, String hash, Object... values) {
+    public EncryptedBusinessKey(EncryptedHub<? extends EncryptedBusinessKey> hub, String hashedEncryption, String hash, Object... values) {
         this.hub = hub;
         this.hashedEncryption = hashedEncryption;
         this.hash = hash;
@@ -61,7 +61,7 @@ public abstract class EncryptedBusinessKey {
         return hashedEncryption;
     }
 
-    EncryptedHub getHub() {
+    EncryptedHub<? extends EncryptedBusinessKey> getHub() {
         return hub;
     }
 
@@ -86,8 +86,9 @@ public abstract class EncryptedBusinessKey {
         valueList.add(cyclicRedundancyCheck);
         valueList.add(getEncryptionKey());
 
-        if (hub.getAdditionalColumnsEks() != null)
-            for (Map.Entry<String, Object> entry : hub.getAdditionalColumnsEks().entrySet()) {
+        Map<String, Object> additionalColumnsEks = hub.getAdditionalColumnsEks();
+        if (additionalColumnsEks != null)
+            for (Map.Entry<String, Object> entry : additionalColumnsEks.entrySet()) {
                 columnList.add(entry.getKey());
                 valueList.add(entry.getValue());
             }
@@ -128,8 +129,9 @@ public abstract class EncryptedBusinessKey {
             valueList.add((hub.getKeyConfig(i).isEncrypted()) ? getEncryptedValue(i) : getValue(i));
         }
 
-        if (hub.getAdditionalColumnsHub() != null)
-            for (Map.Entry<String, Object> entry : hub.getAdditionalColumnsHub().entrySet()) {
+        Map<String, Object> additionalColumnsHub = hub.getAdditionalColumnsHub();
+        if (additionalColumnsHub != null)
+            for (Map.Entry<String, Object> entry : additionalColumnsHub.entrySet()) {
                 columnList.add(entry.getKey());
                 valueList.add(entry.getValue());
             }
@@ -158,5 +160,10 @@ public abstract class EncryptedBusinessKey {
     EncryptedBusinessKey setHashedEncryption(String hashedEncryption) {
         this.hashedEncryption = hashedEncryption;
         return this;
+    }
+
+    public interface Factory<BK extends EncryptedBusinessKey> {
+        BK construct(EncryptedHub<BK> hub, Object... values) throws Exception;
+        BK construct(EncryptedHub<BK> hub, String hashedEncryption, String hash, Object... values);
     }
 }

@@ -111,7 +111,7 @@ public class EncryptedHub<BK extends EncryptedBusinessKey> {
         return keyConfigs[index];
     }
 
-    private static String hash(Object[] values, NormalizeObjectConfig[] configs) {
+    static String hash(Object[] values, NormalizeObjectConfig[] configs) {
         GlobalHashNormalization.DEFAULT_NORMALIZATION.reset();
         for (short i = 0; i < values.length; i++) {
             GlobalHashNormalization.DEFAULT_NORMALIZATION.add(values[i], configs[i]);

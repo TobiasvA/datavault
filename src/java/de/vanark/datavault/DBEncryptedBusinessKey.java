@@ -36,10 +36,12 @@ public class DBEncryptedBusinessKey extends EncryptedBusinessKey {
                 .replace("{value}", value.toString());
     }
 
-    private void encrypt() throws SQLException {
-        Statement setSQLMode = getHub().getConnection().createStatement();
-        setSQLMode.execute("set sql_mode := 'PIPES_AS_CONCAT'");
-        setSQLMode.close();
+    private void encrypt() throws EncryptBusinessKeyException {
+        try {
+            setSQLMode();
+        } catch (SQLException exception) {
+            throw new EncryptBusinessKeyException("Can't set sqlMode 'PIPES_AS_CONCAT'!", exception);
+        }
         encryptedValues = new String[getHub().getSize()];
         final StringJoiner selections = new StringJoiner(", ")
                 .add(buildHashEncryptionCall());
@@ -49,42 +51,31 @@ public class DBEncryptedBusinessKey extends EncryptedBusinessKey {
             else
                 selections.add("null");
         String query = "select " + selections.toString();
-        Statement statement = getHub().getConnection().createStatement();
-        ResultSet result = statement.executeQuery(query);
-        result.next();
-        setHashedEncryption(result.getString(1));
-        for (short index = 0; index < getHub().getSize(); index++)
-            if (getHub().getKeyConfig(index).isEncrypted()) {
-                encryptedValues[index] = result.getString(index + 2);
-            }
-        result.close();
-        statement.close();
-
-            /* local encryption
-            encryptionKey = Encryption.generateSecretKey();
-            encryptedValues = new String[values.length];
-            Object[] encryptedKeyValues = new Object[values.length];
-            NormalizeObjectConfig[] configs = new NormalizeObjectConfig[values.length];
-            for (int i = 0; i < values.length; i++)
-                if (keyConfigs[i].encrypted) {
-                    encryptedValues[i] = Encryption.encrypt(encryptionKey, values[i]);
-                    encryptedKeyValues[i] = encryptedValues[i];
-                    configs[i] = keyConfigs[i];
-                } else {
-                    encryptedKeyValues[i] = values[i];
-                    configs[i] = GlobalHashNormalization.DEFAULT_OBJECT_CONFIG;
+        try {
+            Statement statement = getHub().getConnection().createStatement();
+            ResultSet result = statement.executeQuery(query);
+            result.next();
+            setHashedEncryption(result.getString(1));
+            for (short index = 0; index < getHub().getSize(); index++)
+                if (getHub().getKeyConfig(index).isEncrypted()) {
+                    encryptedValues[index] = result.getString(index + 2);
                 }
-            hashedEncryption = hash(encryptedKeyValues, configs);*/
+            result.close();
+            statement.close();
+        } catch (SQLException exception) {
+            System.err.println(query);
+            throw new EncryptBusinessKeyException("Can't query encrypted values!", exception);
+        }
     }
 
     @Override
-    String getEncryptedValue(short index) throws SQLException {
+    String getEncryptedValue(short index) throws EncryptBusinessKeyException {
         if (encryptedValues == null) encrypt();
         return encryptedValues[index];
     }
 
     @Override
-    String getHashedEncryption() throws SQLException {
+    String getHashedEncryption() throws EncryptBusinessKeyException {
         if (super.getHashedEncryption() == null) encrypt();
         return super.getHashedEncryption();
     }
@@ -98,6 +89,12 @@ public class DBEncryptedBusinessKey extends EncryptedBusinessKey {
             normalizedValues[index] = GlobalHashNormalization.DEFAULT_NORMALIZATION.getNormalizedString();
         }
         return normalizedValues[index];
+    }
+
+    private void setSQLMode() throws SQLException {
+        Statement setSQLMode = getHub().getConnection().createStatement();
+        setSQLMode.execute("set sql_mode := 'PIPES_AS_CONCAT'");
+        setSQLMode.close();
     }
 
     public static class Factory implements EncryptedBusinessKey.Factory<DBEncryptedBusinessKey> {

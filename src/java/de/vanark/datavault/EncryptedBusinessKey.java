@@ -49,7 +49,7 @@ public abstract class EncryptedBusinessKey {
         this.values = values;
     }
 
-    abstract String getEncryptedValue(short index) throws SQLException;
+    abstract String getEncryptedValue(short index) throws EncryptBusinessKeyException;
 
     String getEncryptionKey() {
         if (encryptionKey == null )
@@ -57,7 +57,7 @@ public abstract class EncryptedBusinessKey {
         return encryptionKey;
     }
 
-    String getHashedEncryption() throws SQLException {
+    String getHashedEncryption() throws EncryptBusinessKeyException {
         return hashedEncryption;
     }
 
@@ -69,7 +69,7 @@ public abstract class EncryptedBusinessKey {
         return values[index];
     }
 
-    private void persistEks(LocalDateTime loadDate) throws SQLException {
+    private void persistEks(LocalDateTime loadDate) throws EncryptBusinessKeyException, SQLException {
         final StringJoiner columnList = new StringJoiner(", ")
                 .add(hub.getLoadDateColumnEks())
                 .add(hub.getRecordSourceColumnEks())
@@ -99,22 +99,30 @@ public abstract class EncryptedBusinessKey {
                 .add("insert into "+ hub.getTableEks() +"("+columnList+")")
                 .add("values("+parameter+")");
 
-        final PreparedStatement statement = hub.getConnection().prepareStatement(insertSQL.toString());
-        for (int i = 0; i < valueList.size(); i++)
-            statement.setObject(i + 1, valueList.get(i));
         try {
-            statement.executeUpdate();
-        } catch (SQLSyntaxErrorException exception) {
+            final PreparedStatement statement = hub.getConnection().prepareStatement(insertSQL.toString());
+            for (int i = 0; i < valueList.size(); i++)
+                statement.setObject(i + 1, valueList.get(i));
+            try {
+                statement.executeUpdate();
+            } catch (SQLSyntaxErrorException exception) {
+                System.err.println(insertSQL);
+                for (int index = 0; index < valueList.size(); index++) {
+                    System.err.println(index + ": " + valueList.get(index));
+                }
+                throw exception;
+            }
+            statement.close();
+        } catch (SQLException exception) {
             System.err.println(insertSQL);
             for (int index = 0; index < valueList.size(); index++) {
                 System.err.println(index + ": " + valueList.get(index));
             }
             throw exception;
         }
-        statement.close();
     }
 
-    private void persistHub(LocalDateTime loadDate) throws SQLException {
+    private void persistHub(LocalDateTime loadDate) throws EncryptBusinessKeyException, SQLException {
         final StringJoiner columnList = new StringJoiner(", ")
                 .add(hub.getLoadDateColumnHub())
                 .add(hub.getRecordSourceColumnHub())
@@ -142,19 +150,19 @@ public abstract class EncryptedBusinessKey {
                 .add("insert into "+ hub.getTableHub() +"("+columnList+")")
                 .add("values("+parameter+")");
 
-        final PreparedStatement statement = hub.getConnection().prepareStatement(insertSQL.toString());
-        for (int i = 0; i < valueList.size(); i++)
-            statement.setObject(i + 1, valueList.get(i));
         try {
-            statement.executeUpdate();
-        } catch (SQLSyntaxErrorException exception) {
+            final PreparedStatement statement = hub.getConnection().prepareStatement(insertSQL.toString());
+            for (int i = 0; i < valueList.size(); i++)
+                statement.setObject(i + 1, valueList.get(i));
+                statement.executeUpdate();
+            statement.close();
+        } catch (SQLException exception) {
             System.err.println(insertSQL);
             for (int index = 0; index < valueList.size(); index++) {
                 System.err.println(index + ": " + valueList.get(index));
             }
             throw exception;
         }
-        statement.close();
     }
 
     EncryptedBusinessKey setHashedEncryption(String hashedEncryption) {
@@ -165,5 +173,11 @@ public abstract class EncryptedBusinessKey {
     public interface Factory<BK extends EncryptedBusinessKey> {
         BK construct(EncryptedHub<BK> hub, Object... values) throws Exception;
         BK construct(EncryptedHub<BK> hub, String hashedEncryption, String hash, Object... values);
+    }
+
+    public static class EncryptBusinessKeyException extends Exception {
+        public EncryptBusinessKeyException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 }

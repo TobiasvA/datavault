@@ -1,8 +1,12 @@
 package de.vanark.datavault;
 
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 
 class EncryptedHubTest {
     private Connection connection;
@@ -10,7 +14,7 @@ class EncryptedHubTest {
 
     @BeforeEach
     void setUp() throws SQLException {
-        connection = DriverManager.getConnection("jdbc:mariadb://localhost:3306/datavault?user=dvload&password=dvload");
+        connection = DriverManager.getConnection("jdbc:tc:mariadb:10.3.6:///datavault?TC_INITSCRIPT=mariadb/datavault.sql");
         EncryptedHub.KeyConfig mandantAttribute = new EncryptedHub.KeyConfig("mandant", false);
         EncryptedHub.KeyConfig vertragAttribute = new EncryptedHub.KeyConfig("vertrag_ec", true);
         EncryptedHub.KeyConfig teilvertragAttribute = new EncryptedHub.KeyConfig("teilvertrag_ec", true);

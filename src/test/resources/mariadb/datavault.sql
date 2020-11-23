@@ -1,7 +1,7 @@
-create or replace database datavault;
-use datavault;
-create or replace user 'dvload'@'%'
-identified by 'dvload';
+--create or replace database datavault;
+--use datavault;
+--create or replace user 'dvload'@'%'
+--identified by 'dvload';
 create or replace table teilvertrag_hub
         (meta_loaddate timestamp not null,
         meta_recordsource varchar(28) not null,
@@ -21,7 +21,7 @@ insert into teilvertrag_hub (
         vertrag_ec,
         teilvertrag_ec)
 values (
-        timestamp('0001-01-01 00:00:00.0'),
+        timestamp('0000-00-00 00:00:00.0'),
         'SYSTEM',
         0,
         '0000000000000000000000000000',
@@ -29,9 +29,9 @@ values (
         null,
         null
 );
-grant select, insert
-on teilvertrag_hub
-to dvload;
+--grant select, insert
+--on teilvertrag_hub
+--to dvload;
 create or replace table teilvertrag_hub_eks(
         meta_loaddate timestamp not null,
         meta_recordsource varchar(28) not null,
@@ -44,7 +44,7 @@ create or replace table teilvertrag_hub_eks(
 );
 create or replace index index_teilvertrag_hub_eks_1
 on teilvertrag_hub_eks(meta_hk_teilvertrag_ec);
-grant select, insert, update, delete
-on teilvertrag_hub_eks
-to dvload;
+--grant select, insert, update, delete
+--on teilvertrag_hub_eks
+--to dvload;
 
